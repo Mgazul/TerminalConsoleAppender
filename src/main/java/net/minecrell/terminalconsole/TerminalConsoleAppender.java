@@ -24,6 +24,9 @@
 
 package net.minecrell.terminalconsole;
 
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.Serializable;
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.Core;
 import org.apache.logging.log4j.core.Filter;
@@ -38,10 +41,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jline.reader.LineReader;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
-
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.Serializable;
 
 /**
  * An {@link Appender} that uses the JLine 3.x {@link Terminal} to print messages

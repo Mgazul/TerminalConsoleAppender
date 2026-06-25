@@ -1,6 +1,5 @@
 /*
- * The MIT License (MIT)
- *
+ * TerminalConsoleAppender
  * Copyright (c) 2017 Minecrell <https://github.com/Minecrell>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,7 +30,6 @@ import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.core.pattern.ConverterKeys;
-import org.apache.logging.log4j.core.pattern.HighlightConverter;
 import org.apache.logging.log4j.core.pattern.LogEventPatternConverter;
 import org.apache.logging.log4j.core.pattern.PatternConverter;
 import org.apache.logging.log4j.core.pattern.PatternFormatter;
@@ -39,28 +37,16 @@ import org.apache.logging.log4j.core.pattern.PatternParser;
 import org.apache.logging.log4j.util.PerformanceSensitive;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-/**
- * A simplified version of {@link HighlightConverter} that uses
- * {@link TerminalConsoleAppender} to detect if ANSI escape codes can be used
- * to highlight errors and warnings in the console.
- *
- * <p>If configured, it will mark all logged errors with a red color and all
- * warnings with a yellow color. It can be only used together with
- * {@link TerminalConsoleAppender}.</p>
- *
- * <p>{@link TerminalConsoleAppender#ANSI_OVERRIDE_PROPERTY} may be used
- * to force the use of ANSI colors even in unsupported environments.</p>
- *
- * <p><b>Example usage:</b> {@code %highlightError{%level: %message}}</p>
- */
-@Plugin(name = "highlightError", category = PatternConverter.CATEGORY)
-@ConverterKeys({ "highlightError" })
+@Plugin(name = "highlightLevel", category = PatternConverter.CATEGORY)
+@ConverterKeys({"highlightLevel"})
 @PerformanceSensitive("allocation")
-public final class HighlightErrorConverter extends LogEventPatternConverter {
-
-    private static final String ANSI_RESET = "\u001B[m";
-    private static final String ANSI_ERROR = "\u001B[31;1m"; // Bold Red
-    private static final String ANSI_WARN = "\u001B[33;1m"; // Bold Yellow
+public class HighlightLevelConverter extends LogEventPatternConverter {
+    private static final String ANSI_RESET = "\u001B[39;0m";
+    private static final String ANSI_ERROR = "\u001B[31;1m";
+    private static final String ANSI_WARN = "\u001B[33;1m";
+    private static final String ANSI_INFO = "\u001B[32;22m";
+    private static final String ANSI_FATAL = "\u001B[31;1m";
+    private static final String ANSI_TRACE = "\u001B[31;1m";
 
     private final List<PatternFormatter> formatters;
 
@@ -69,9 +55,33 @@ public final class HighlightErrorConverter extends LogEventPatternConverter {
      *
      * @param formatters The pattern formatters to generate the text to highlight
      */
-    protected HighlightErrorConverter(List<PatternFormatter> formatters) {
-        super("highlightError", null);
+    protected HighlightLevelConverter(List<PatternFormatter> formatters) {
+        super("highlightLevel", null);
         this.formatters = formatters;
+    }
+
+    /**
+     * Gets a new instance of the {@link HighlightLevelConverter} with the
+     * specified options.
+     *
+     * @param config  The current configuration
+     * @param options The pattern options
+     * @return The new instance
+     */
+    @Nullable
+    public static HighlightLevelConverter newInstance(Configuration config, String[] options) {
+        if (options.length != 1) {
+            LOGGER.error("Incorrect number of options on highlightLevel. Expected 1 received " + options.length);
+            return null;
+        }
+        if (options[0] == null) {
+            LOGGER.error("No pattern supplied on highlightLevel");
+            return null;
+        }
+
+        PatternParser parser = PatternLayout.createPatternParser(config);
+        List<PatternFormatter> formatters = parser.parse(options[0]);
+        return new HighlightLevelConverter(formatters);
     }
 
     @Override
@@ -83,6 +93,15 @@ public final class HighlightErrorConverter extends LogEventPatternConverter {
                 return;
             } else if (level.isMoreSpecificThan(Level.WARN)) {
                 format(ANSI_WARN, event, toAppendTo);
+                return;
+            } else if (level.isMoreSpecificThan(Level.INFO)) {
+                format(ANSI_INFO, event, toAppendTo);
+                return;
+            } else if (level.isMoreSpecificThan(Level.FATAL)) {
+                format(ANSI_FATAL, event, toAppendTo);
+                return;
+            } else if (level.isMoreSpecificThan(Level.TRACE)) {
+                format(ANSI_TRACE, event, toAppendTo);
                 return;
             }
         }
@@ -104,7 +123,7 @@ public final class HighlightErrorConverter extends LogEventPatternConverter {
         }
 
         if (toAppendTo.length() == end) {
-            // No content so we don't need to append the ANSI escape code
+            // No content, so we don't need to append the ANSI escape code
             toAppendTo.setLength(start);
         } else {
             // Append reset code after the line
@@ -121,28 +140,4 @@ public final class HighlightErrorConverter extends LogEventPatternConverter {
         }
         return false;
     }
-
-    /**
-     * Gets a new instance of the {@link HighlightErrorConverter} with the
-     * specified options.
-     *
-     * @param config The current configuration
-     * @param options The pattern options
-     * @return The new instance
-     */
-    public static @Nullable HighlightErrorConverter newInstance(Configuration config, String[] options) {
-        if (options.length != 1) {
-            LOGGER.error("Incorrect number of options on highlightError. Expected 1 received " + options.length);
-            return null;
-        }
-        if (options[0] == null) {
-            LOGGER.error("No pattern supplied on highlightError");
-            return null;
-        }
-
-        PatternParser parser = PatternLayout.createPatternParser(config);
-        List<PatternFormatter> formatters = parser.parse(options[0]);
-        return new HighlightErrorConverter(formatters);
-    }
-
 }
